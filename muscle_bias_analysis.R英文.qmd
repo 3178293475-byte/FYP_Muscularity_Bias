@@ -1,0 +1,83 @@
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+-   
+
+    ```{r}
+
+
+    library(readxl)
+    library(dplyr)
+    library(ggplot2)
+    library(gridExtra)
+
+    experience <- read_excel("C:/Users/wdnmd/Desktop/fyp/经历组.xlsx") %>% slice(-1)
+    internal <- read_excel("C:/Users/wdnmd/Desktop/fyp/内化组.xlsx") %>% slice(-1)
+
+    calc_scores <- function(df){
+      df %>% 
+        mutate(
+          Muscularity_Dissatisfaction = rowMeans(select(., `我觉得我的身体太小`, `我觉得我的胸肌太小`, 
+                               `我觉得我的手臂不够粗`, `我觉得我的腿太细了`) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE),
+          Drive_for_Muscularity = rowMeans(select(., `我希望自己的肌肉更发达`, `肌肉更发达我会感觉更自信`,
+                               `我觉得我的手臂肌肉不够发达`, `我觉得我的胸肌不够发达`) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE),
+          Muscularity_Bias_Internalization = rowMeans(select(., `如果我的肌肉不够明显，我会觉得自己一无是处`,
+                               `我会因为自己肌肉不够强壮而讨厌我自己`,
+                               `我担心自己肌肉不够明显`) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE),
+          Negative_Affect = rowMeans(select(., `害怕的`, `紧张的`, `心烦的`, `心神不宁的`) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE),
+          Positive_Affect = rowMeans(select(., `备受鼓舞的`, `热情的`, `精神活力高的`) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE),
+          SE_reverse = 5 - as.numeric(`归根结底，我倾向于觉得自己是一个失败者`),
+          Self_Esteem = rowMeans(select(., `我感到我是一个有价值的人`, `我能像大多数人一样把事情做好`,
+                              `我对自己持肯定的态度`, SE_reverse) %>% 
+                        mutate(across(everything(), as.numeric)), na.rm = TRUE)
+        ) %>% 
+        select(Muscularity_Dissatisfaction, Drive_for_Muscularity, 
+               Muscularity_Bias_Internalization, Negative_Affect, 
+               Positive_Affect, Self_Esteem)
+    }
+
+    exp_data <- calc_scores(experience) %>% mutate(Group = "Experience")
+    int_data <- calc_scores(internal) %>% mutate(Group = "Internalization")
+    plot_data <- rbind(exp_data, int_data)
+
+    # t检验
+    vars <- c("Muscularity_Dissatisfaction", "Drive_for_Muscularity", 
+              "Muscularity_Bias_Internalization", "Negative_Affect", 
+              "Positive_Affect", "Self_Esteem")
+
+    for (v in vars) {
+      test <- t.test(plot_data[[v]] ~ plot_data$Group)
+      cat("\n", v, ": t =", round(test$statistic,2), 
+          ", df =", round(test$parameter,2), 
+          ", p =", round(test$p.value,4))
+    }
+
+    # 画图
+    create_plot <- function(v, title){
+      ggplot(plot_data, aes(x=Group, y=.data[[v]], fill=Group)) +
+        geom_bar(stat="summary", fun="mean", width=0.6, color="black") +
+        geom_errorbar(stat="summary", fun.data=mean_se, width=0.2) +
+        scale_fill_manual(values=c("#4682B4", "#DC143C")) +
+        labs(title=title, x="Group", y="Mean") + theme_bw() +
+        theme(legend.position="none")
+    }
+
+    p1 <- create_plot("Muscularity_Dissatisfaction", "Muscularity Dissatisfaction")
+    p2 <- create_plot("Drive_for_Muscularity", "Drive for Muscularity")
+    p3 <- create_plot("Muscularity_Bias_Internalization", "Muscularity Bias Internalization")
+    p4 <- create_plot("Negative_Affect", "Negative Affect")
+    p5 <- create_plot("Positive_Affect", "Positive Affect")
+    p6 <- create_plot("Self_Esteem", "Self-Esteem")
+
+    grid.arrange(p1, p2, p3, p4, p5, p6, nrow=2, ncol=3)
+
+
+    ```
+
+#### 
